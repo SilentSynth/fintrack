@@ -577,7 +577,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex h-[420px] items-center justify-center text-sm text-slate-500">
-                No historical price data available yet.
+                No historical price data available yet...
               </div>
             )}
           </section>
