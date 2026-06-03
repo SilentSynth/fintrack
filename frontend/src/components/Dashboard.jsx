@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Area,
+  ComposedChart,
   CartesianGrid,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import Particles from './Particles';
+import TiltedCard from './TiltedCard';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const RECENT_SEARCHES_STORAGE_KEY = 'fintrack.recentSearches';
 const RECENT_SEARCHES_ENABLED_STORAGE_KEY = 'fintrack.recentSearchesEnabled';
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1518655048521-f130df041f66?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80',
+];
 
 function formatMarketCap(value, currencySymbol = '') {
   if (value === null || value === undefined) {
@@ -160,15 +170,70 @@ function NewsCard({ article }) {
       href={article.url}
       target="_blank"
       rel="noreferrer"
-      className="group rounded-2xl border border-white/10 bg-slate-900/70 p-5 transition hover:-translate-y-1 hover:border-cyan-400/30 hover:bg-slate-900"
+      className="group block border-b border-white/5 py-4 transition hover:opacity-80"
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/80">{article.source}</p>
-        <span className="text-xs text-slate-500">{article.published_at?.slice(0, 10)}</span>
+      <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+        <p className="uppercase tracking-[0.3em]">{article.source}</p>
+        <span>{article.published_at?.slice(0, 10)}</span>
       </div>
-      <h3 className="mt-4 text-lg font-semibold leading-7 text-slate-50 group-hover:text-cyan-200">{article.title}</h3>
-      <p className="mt-3 text-sm leading-6 text-slate-300">{article.description || 'Open to read the full article.'}</p>
+      <h3 className="mt-3 text-base font-medium leading-7 text-slate-50">{article.title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{article.description || 'Open to read the full article.'}</p>
     </a>
+  );
+}
+
+function getArticleImageSrc(article, index) {
+  return (
+    article.image_url ||
+    article.imageUrl ||
+    article.url_to_image ||
+    article.urlToImage ||
+    article.image ||
+    FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]
+  );
+}
+
+function getArticleOverlayText(article) {
+  return article.description || 'Open the article for the full story.';
+}
+
+function formatChartDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsedDate);
+}
+
+function ChartTooltip({ active, payload, currencySymbol }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0]?.payload || {};
+  const price = Number(point.price ?? payload[0]?.value);
+
+  if (!Number.isFinite(price)) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl bg-[#040507]/90 px-3 py-2 text-xs text-slate-100 shadow-2xl backdrop-blur">
+      <div className="text-slate-500">{formatChartDate(point.date)}</div>
+      <div className="mt-1 text-sm font-semibold tabular-nums text-white">
+        {currencySymbol}
+        {price.toFixed(2)}
+      </div>
+    </div>
   );
 }
 
@@ -213,37 +278,36 @@ export default function Dashboard() {
     localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(recentSearches.slice(0, 5)));
   }, [recentSearches, recentSearchesEnabled]);
 
-  function runSearch(nextQuery) {
+  async function runSearch(nextQuery) {
     setQuery(nextQuery);
     setLoading(true);
     setError('');
     setData(null);
     setSubmittedQuery('');
 
-    return fetch(`${API_BASE_URL}/api/insights/${encodeURIComponent(nextQuery)}`)
-      .then((response) => response.json().catch(() => null).then((payload) => ({ response, payload })))
-      .then(({ response, payload }) => {
-        if (!response.ok) {
-          throw new Error(payload?.detail || `Request failed with status ${response.status}`);
-        }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/insights/${encodeURIComponent(nextQuery)}`);
+      const payload = await response.json().catch(() => null);
 
-        setData(payload);
-        setSubmittedQuery(nextQuery);
+      if (!response.ok) {
+        throw new Error(payload?.detail || `Request failed with status ${response.status}`);
+      }
 
-        if (recentSearchesEnabled) {
-          setRecentSearches((currentSearches) => {
-            const nextSearches = [nextQuery, ...currentSearches.filter((item) => item.toLowerCase() !== nextQuery.toLowerCase())];
-            return nextSearches.slice(0, 5);
-          });
-        }
-      })
-      .catch((fetchError) => {
-        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load dashboard data.');
-        setData(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      setData(payload);
+      setSubmittedQuery(nextQuery);
+
+      if (recentSearchesEnabled) {
+        setRecentSearches((currentSearches) => {
+          const nextSearches = [nextQuery, ...currentSearches.filter((item) => item.toLowerCase() !== nextQuery.toLowerCase())];
+          return nextSearches.slice(0, 5);
+        });
+      }
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Failed to load dashboard data.');
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSearch(event) {
@@ -270,6 +334,22 @@ export default function Dashboard() {
 
   const stockData = data?.stock_data ?? {};
   const currencySymbol = stockData.currency_symbol || '';
+  const heroTicker = stockData.ticker || submittedQuery || query || 'Search a stock';
+  const currentPriceValue = Number(stockData.current_price);
+  const firstHistoricalPrice = Number(chartData[0]?.price);
+  const isPriceUp =
+    Number.isFinite(currentPriceValue) && Number.isFinite(firstHistoricalPrice)
+      ? currentPriceValue > firstHistoricalPrice
+      : true;
+  const themeColor = isPriceUp ? '#00C805' : '#FF5000';
+  const gradientId = isPriceUp ? 'chart-gradient-up' : 'chart-gradient-down';
+  const currentPriceLabel =
+    stockData.current_price !== null && stockData.current_price !== undefined
+      ? `${currencySymbol}${Number(stockData.current_price).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
+      : '—';
   const aiSummary = data?.ai_summary ?? {};
   const currentMarketState = toBulletList(aiSummary.current_market_state);
   const criticalDevelopments = toBulletList(aiSummary.critical_developments);
@@ -277,6 +357,13 @@ export default function Dashboard() {
   const sentiment = sentimentDetails(sentimentScore);
   const isMacroSectorView = data?.view_mode === 'macro_sector' || !stockData.has_live_quote;
   const alerts = Array.isArray(data?.alerts) ? data.alerts : [];
+  const isAnalyzed = Boolean(submittedQuery || data);
+  const currentPriceText = Number.isFinite(currentPriceValue)
+    ? currentPriceValue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : '—';
 
   function handleRecentSearchToggle(event) {
     const enabled = event.target.checked;
@@ -292,246 +379,297 @@ export default function Dashboard() {
     runSearch(item);
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-        <header className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.35em] text-cyan-300/80">FinTrack</p>
-              <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Financial Intelligence Dashboard</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">
-                Search a ticker, company, or sector to view live market context, recent headlines, and a Gemini-generated market brief.
+  if (!isAnalyzed) {
+    return (
+      <div className="relative w-full h-screen bg-black overflow-hidden text-slate-100">
+        <div className="absolute inset-0 z-0">
+          <Particles
+            particleColors={['#ffffff', '#00C805', '#10b981']}
+            particleCount={300}
+            particleSpread={10}
+            speed={0.12}
+            particleBaseSize={100}
+            moveParticlesOnHover={true}
+            alphaParticles={false}
+            disableRotation={false}
+            className="h-full w-full"
+          />
+        </div>
+
+        <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center px-6 text-center">
+          <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-col items-center gap-8 rounded-[2rem] border border-white/10 bg-black/35 p-8 backdrop-blur-xl sm:p-10">
+            <div className="space-y-4">
+              <p className="text-xl font-black tracking-widest text-emerald-200/70">FINTRACK</p>
+              <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+                Financial Intelligence Dashboard
+              </h1>
+              <p className="max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+                Search a ticker, company, or sector to surface live market context, headlines, and AI-generated insights.
               </p>
             </div>
 
-            <form onSubmit={handleSearch} className="flex w-full max-w-xl gap-3">
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search ticker, company, or sector, e.g. AAPL or Steel Industry"
-                className="flex-1 rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400/50"
-              />
-              <button
-                type="submit"
-                className="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={loading}
-              >
-                {loading ? 'Analyzing' : 'Analyze'}
-              </button>
-            </form>
+            <div className="w-full max-w-xl">
+              <form onSubmit={handleSearch} className="space-y-4">
+                <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/8 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search ticker, company, or sector"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-emerald-400 px-5 py-2 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={loading}
+                  >
+                    {loading ? 'Analyzing' : 'Analyze'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm text-slate-300">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={recentSearchesEnabled}
+                    onChange={handleRecentSearchToggle}
+                    className="h-4 w-4 rounded border-slate-600 bg-transparent text-white focus:ring-0"
+                  />
+                  Recent searches
+                </label>
+
+                {recentSearchesEnabled && recentSearches.length > 0 ? (
+                  recentSearches.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handleRecentSearchClick(item)}
+                      className="rounded-md border border-white/10 px-3 py-1 text-sm text-slate-300 transition hover:text-white"
+                    >
+                      {item}
+                    </button>
+                  ))
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#040507] text-slate-100">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-10">
+        <header className="flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl space-y-8">
+            <div className="space-y-3">
+              <p className="text-xl font-black tracking-widest text-slate-300">FINTRACK</p>
+              <div className="flex items-center gap-3 text-lg font-medium text-slate-400">
+                <span>Market Trend</span>
+                {stockData.has_live_quote ? <span className="h-px w-10 bg-white/10" /> : null}
+                {stockData.has_live_quote ? <span style={{ color: themeColor }}>{isPriceUp ? 'Uptrend' : 'Downtrend'}</span> : null}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-2xl font-bold tracking-wide text-gray-300">{heroTicker}</p>
+              <h1 className="text-6xl font-semibold tabular-nums tracking-tight text-white sm:text-7xl lg:text-8xl" style={{ color: stockData.has_live_quote ? themeColor : '#e2e8f0' }}>
+                <span>{currencySymbol}</span>
+                <span>{currentPriceText}</span>
+              </h1>
+              {stockData.company_name ? <p className="max-w-2xl text-lg text-slate-400">{stockData.company_name}</p> : null}
+            </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 md:flex-row md:items-center md:justify-between">
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={recentSearchesEnabled}
-                onChange={handleRecentSearchToggle}
-                className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
-              />
-              Recent Searches
-              <span className="text-xs text-slate-500">{recentSearchesEnabled ? 'On' : 'Off'}</span>
-            </label>
+          <div className="w-full max-w-xl space-y-4 lg:pt-6">
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search ticker, company, or sector"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                />
+                <button
+                  type="submit"
+                  className="rounded-md px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  style={{ backgroundColor: themeColor }}
+                  disabled={loading}
+                >
+                  {loading ? 'Analyzing' : 'Analyze'}
+                </button>
+              </div>
+            </form>
 
-            {recentSearchesEnabled && recentSearches.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((item) => (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={recentSearchesEnabled}
+                  onChange={handleRecentSearchToggle}
+                  className="h-4 w-4 rounded border-slate-600 bg-transparent text-white focus:ring-0"
+                />
+                Recent searches
+              </label>
+
+              {recentSearchesEnabled && recentSearches.length > 0 ? (
+                recentSearches.map((item) => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => handleRecentSearchClick(item)}
-                    className="rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-xs text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-200"
+                    className="rounded-md border border-white/8 px-3 py-1 text-sm text-slate-300 transition hover:text-white"
                   >
                     {item}
                   </button>
-                ))}
-              </div>
-            ) : recentSearchesEnabled ? (
-              <p className="text-xs text-slate-500">No recent searches yet.</p>
-            ) : (
-              <p className="text-xs text-slate-500">Recent searches are turned off.</p>
-            )}
+                ))
+              ) : null}
+            </div>
           </div>
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>
+          <div className="mt-8 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-200">{error}</div>
         ) : null}
 
         {alerts.length > 0 ? (
-          <div className="space-y-3">
+          <div className="mt-6 space-y-3">
             {alerts.map((alert, index) => (
               <AlertBanner key={`${alert.title}-${index}`} alert={alert} />
             ))}
           </div>
         ) : null}
 
-        {loading ? (
-          <main className="grid gap-6 lg:grid-cols-3">
-            <SkeletonCard className="lg:col-span-1">
-              <SummarySkeleton />
-            </SkeletonCard>
-            <SkeletonCard className="lg:col-span-2">
-              <ChartSkeleton />
-            </SkeletonCard>
-            <SkeletonCard className="lg:col-span-3">
-              <div className="mb-6 h-4 w-36 rounded-full bg-slate-800" />
-              <NewsSkeleton />
-            </SkeletonCard>
-          </main>
-        ) : null}
-
-        {!loading && data ? (
-          <main className="grid gap-6 lg:grid-cols-3">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/30 lg:col-span-1">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-400">Market Summary</p>
-                  <h2 className="mt-1 text-2xl font-semibold">{submittedQuery.toUpperCase()}</h2>
-                </div>
-                <span className={`rounded-full border px-3 py-1 text-xs font-medium ${sentiment.badgeClass}`}>
-                  {sentiment.label}
-                </span>
+        <main className="mt-14 space-y-16">
+          <section className="space-y-8">
+            {isMacroSectorView ? (
+              <div className="max-w-2xl text-sm leading-6 text-slate-500">
+                No direct stock ticker was resolved for this search, so the live chart is hidden. The market summary and news remain available.
               </div>
-
-              <div className="mt-5 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Sentiment Score</p>
-                  <span className="text-sm font-semibold text-slate-200">
-                    {sentimentScore}/10
-                  </span>
-                </div>
-                <div className="mt-3 h-2 rounded-full bg-slate-800">
-                  <div
-                    className={`h-2 rounded-full ${sentiment.fillClass}`}
-                    style={{ width: `${sentimentScore * 10}%` }}
-                  />
-                </div>
-                <p className="mt-3 text-xs text-slate-400">{sentiment.description}</p>
+            ) : loading ? (
+              <div className="flex h-[420px] items-center justify-center text-sm text-slate-500">
+                Loading chart...
               </div>
-
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-slate-900/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Current Market State</p>
-                  <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-200">
-                    {currentMarketState.length > 0 ? (
-                      currentMarketState.map((item, index) => (
-                        <li key={`${item}-${index}`} className="flex gap-3">
-                          <span className="mt-2 h-2 w-2 rounded-full bg-cyan-300" />
-                          <span>{item}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-slate-400">No summary available.</li>
-                    )}
-                  </ul>
+            ) : chartData.length > 0 ? (
+              <div className="relative h-[420px] overflow-hidden">
+                <div className="absolute right-4 top-4 z-10 rounded-full bg-zinc-800/80 px-2 py-1 text-xs uppercase tracking-widest text-zinc-400 backdrop-blur-sm">
+                  1 month price history
                 </div>
-
-                <div className="rounded-2xl bg-slate-900/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Critical Developments</p>
-                  <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-200">
-                    {criticalDevelopments.length > 0 ? (
-                      criticalDevelopments.map((item, index) => (
-                        <li key={`${item}-${index}`} className="flex gap-3">
-                          <span className="mt-2 h-2 w-2 rounded-full bg-amber-300" />
-                          <span>{item}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-slate-400">No critical developments were extracted.</li>
-                    )}
-                  </ul>
-                </div>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={themeColor} stopOpacity={0.28} />
+                        <stop offset="100%" stopColor={themeColor} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" hide tick={false} axisLine={false} tickLine={false} />
+                    <YAxis domain={["dataMin - 5", "dataMax + 5"]} hide tick={false} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      cursor={{ stroke: themeColor, strokeWidth: 1, strokeDasharray: '4 4' }}
+                      content={(props) => <ChartTooltip {...props} currencySymbol={currencySymbol} />}
+                    />
+                    <Area type="monotone" dataKey="price" stroke="none" fill={`url(#${gradientId})`} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="price" stroke={themeColor} strokeWidth={3} dot={false} isAnimationActive={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
               </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/30 lg:col-span-2">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-sm text-slate-400">Stock Visualization</p>
-                  <h2 className="mt-1 text-2xl font-semibold">Price Trend</h2>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-900/70 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Current Price</p>
-                    <p className="mt-1 text-lg font-semibold">
-                      {stockData.current_price !== null && stockData.current_price !== undefined
-                        ? `${currencySymbol}${Number(stockData.current_price).toFixed(2)}`
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-slate-900/70 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Market Cap</p>
-                    <p className="mt-1 text-lg font-semibold">{formatMarketCap(stockData.market_cap, currencySymbol)}</p>
-                  </div>
-                </div>
+            ) : (
+              <div className="flex h-[420px] items-center justify-center text-sm text-slate-500">
+                No historical price data available yet.
               </div>
+            )}
+          </section>
 
-              {isMacroSectorView ? (
-                <div className="mt-6 flex h-80 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-slate-900/70 px-6 text-center">
-                  <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
-                    Macro Sector View
-                  </span>
-                  <p className="mt-4 max-w-lg text-sm leading-6 text-slate-300">
-                    No direct stock ticker was resolved for this search, so the live chart is disabled. The summary and news feed remain available.
-                  </p>
-                </div>
-              ) : loading ? (
-                <div className="mt-6 flex h-80 items-center justify-center rounded-2xl bg-slate-900/70 text-sm text-slate-400">
-                  Loading chart data...
-                </div>
-              ) : chartData.length > 0 ? (
-                <div className="mt-6 h-80 rounded-2xl bg-slate-900/70 p-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke="rgba(148, 163, 184, 0.15)" strokeDasharray="4 4" />
-                      <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 12 }} minTickGap={24} />
-                      <YAxis domain={["dataMin - 5", "dataMax + 5"]} tick={{ fill: '#94a3b8', fontSize: 12 }} width={60} />
-                      <Tooltip
-                        contentStyle={{
-                          background: '#0f172a',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: 16,
-                          color: '#e2e8f0',
-                        }}
-                        formatter={(value, name) => [
-                          `${currencySymbol}${Number(value).toFixed(2)}`,
-                          name === 'price' ? 'Price' : 'Close',
-                        ]}
-                      />
-                      <Line type="monotone" dataKey="price" stroke="#22d3ee" strokeWidth={3} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="mt-6 flex h-80 items-center justify-center rounded-2xl bg-slate-900/70 text-sm text-slate-400">
-                  No historical price data available yet.
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/30 lg:col-span-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-400">Recent News</p>
-                  <h2 className="mt-1 text-2xl font-semibold">Headlines</h2>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {data.news_articles.length > 0 ? (
-                  data.news_articles.map((article) => <NewsCard key={`${article.title}-${article.published_at}`} article={article} />)
+          <section className="max-w-3xl space-y-8">
+            <div>
+              <p className="text-large uppercase tracking-[0.35em] text-slate-500">AI Market State</p>
+              <ul className="mt-5 space-y-4 text-lg leading-relaxed text-gray-200">
+                {currentMarketState.length > 0 ? (
+                  currentMarketState.map((item, index) => (
+                    <li key={`${item}-${index}`} className="mb-4 flex gap-3 last:mb-0">
+                      <span className="mt-2 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
+                      <span>{item}</span>
+                    </li>
+                  ))
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 text-sm text-slate-400">
-                    No live news articles were returned.
-                  </div>
+                  <li className="text-slate-500">No summary available.</li>
                 )}
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-large uppercase tracking-[0.35em] text-slate-500">Critical Developments</p>
+              <ul className="mt-5 space-y-4 text-lg leading-relaxed text-gray-200">
+                {criticalDevelopments.length > 0 ? (
+                  criticalDevelopments.map((item, index) => (
+                    <li key={`${item}-${index}`} className="mb-4 flex gap-3 last:mb-0">
+                      <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-slate-500">No critical developments were extracted.</li>
+                )}
+              </ul>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-large uppercase tracking-[0.35em] text-slate-500">Recent News</p>
+                <h2 className="mt-3 text-xl font-medium text-white">Headlines</h2>
               </div>
-            </section>
-          </main>
-        ) : null}
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {(data?.news_articles ?? []).length > 0 ? (
+                (data?.news_articles ?? []).map((article, index) => (
+                  <a
+                    key={`${article.title}-${article.published_at}`}
+                    href={article.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
+                    <TiltedCard
+                      imageSrc={getArticleImageSrc(article, index)}
+                      altText={article.title}
+                      captionText={article.title}
+                      containerHeight="420px"
+                      containerWidth="100%"
+                      imageHeight="420px"
+                      imageWidth="100%"
+                      rotateAmplitude={12}
+                      scaleOnHover={1.08}
+                      showMobileWarning={false}
+                      showTooltip={true}
+                      displayOverlayContent={true}
+                      overlayContent={
+                        <div className="flex h-[420px] w-full flex-col justify-end rounded-[15px] bg-gradient-to-t from-black/85 via-black/30 to-transparent p-5 text-left">
+                          <div className="mb-3 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.35em] text-white/70">
+                            <span>{article.source}</span>
+                            <span>{article.published_at?.slice(0, 10)}</span>
+                          </div>
+                          <h3 className="text-balance text-lg font-semibold leading-7 text-white">
+                            {article.title}
+                          </h3>
+                          <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-200">
+                            {getArticleOverlayText(article)}
+                          </p>
+                        </div>
+                      }
+                    />
+                  </a>
+                ))
+              ) : (
+                <div className="py-6 text-sm text-slate-500">No live news articles were returned.</div>
+              )}
+            </div>
+          </section>
+        </main>
       </div>
     </div>
   );
