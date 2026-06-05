@@ -1,23 +1,14 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "api/index.py",
-            "use": "@vercel/python"
+    "experimentalServices": {
+        "frontend": {
+            "root": "frontend",
+            "routePrefix": "/",
+            "framework": "vite"
         },
-        {
-            "src": "package.json",
-            "use": "@vercel/static-build"
+        "backend": {
+            "root": "backend",
+            "routePrefix": "/api",
+            "framework": "fastapi"
         }
-    ],
-    "routes": [
-        {
-            "src": "/api/(.*)",
-            "dest": "api/index.py"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/$1"
-        }
-    ]
+    }
 }
