@@ -299,7 +299,7 @@ function SearchBar({
       <form onSubmit={onSubmit} className="space-y-4">
         <div
           className={`flex items-center gap-3 rounded-lg border transition-all duration-300 px-4 py-2.5 shadow-2xl shadow-black/30 backdrop-blur-md ${isFocused
-            ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)] bg-white/10'
+            ? 'border-slate-500/50 shadow-[0_0_20px_rgba(100,116,139,0.15)] bg-white/10'
             : 'border-white/10 bg-white/8'
             }`}
         >
@@ -313,7 +313,7 @@ function SearchBar({
           />
           <button
             type="submit"
-            className="bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:bg-emerald-400 hover:scale-105 hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all duration-300 text-white font-semibold rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 shrink-0"
+            className="bg-slate-700 shadow-[0_0_15px_rgba(100,116,139,0.2)] hover:bg-slate-600 hover:scale-105 hover:shadow-[0_0_25px_rgba(100,116,139,0.4)] transition-all duration-300 text-white font-semibold rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 shrink-0"
             disabled={loading}
           >
             {loading ? (
@@ -351,7 +351,7 @@ function SearchBar({
             />
             <div
               className={`w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${recentSearchesEnabled
-                ? 'bg-emerald-500 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                ? 'bg-slate-700 border-slate-600 shadow-[0_0_10px_rgba(100,116,139,0.3)]'
                 : 'bg-zinc-900/50 border-zinc-700/80 hover:border-zinc-500'
                 }`}
             >
