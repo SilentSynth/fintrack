@@ -122,6 +122,29 @@ async def get_insights(query: str) -> dict[str, Any]:
         "alerts": [],
     }
 
+    if not isinstance(stock_result, dict):
+        stock_result = {}
+
+    fallback_name = locals().get("search_ticker") or normalized_query
+
+    if not stock_result.get("company_name") or not str(stock_result.get("company_name")).strip():
+        stock_result["company_name"] = fallback_name
+
+    if not stock_result.get("description") or not str(stock_result.get("description")).strip():
+        stock_result["description"] = "No description available from market data providers for this asset."
+
+    if not stock_result.get("sector") or not str(stock_result.get("sector")).strip():
+        stock_result["sector"] = "Financial / General"
+
+    if not stock_result.get("industry") or not str(stock_result.get("industry")).strip():
+        stock_result["industry"] = "Market Asset"
+
+    if not stock_result.get("website") or not str(stock_result.get("website")).strip():
+        stock_result["website"] = "#"
+
+    if stock_result.get("current_price") is None or stock_result.get("current_price") == "":
+        stock_result["current_price"] = 0.0
+
     alerts = []
     alerts.extend(stock_result.get("alerts", []))
     alerts.extend(news_result.get("alerts", []))
