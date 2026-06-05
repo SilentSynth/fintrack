@@ -15,10 +15,10 @@ from app.services.news_service import fetch_news
 from app.services.stock_service import fetch_stock_snapshot
 
 
-router = APIRouter(prefix="/api", tags=["insights"])
-
+router = APIRouter(tags=["insights"])
 
 @router.get("/insights/{query:path}/summary")
+@router.get("/api/insights/{query:path}/summary")
 async def get_insights_summary(query: str) -> dict[str, Any]:
     normalized_query = query.strip()
     if not normalized_query:
@@ -54,8 +54,8 @@ async def get_insights_summary(query: str) -> dict[str, Any]:
         "alerts": ai_result.get("alerts", []),
     }
 
-
 @router.get("/insights/{query:path}", response_model=InsightsResponse)
+@router.get("/api/insights/{query:path}", response_model=InsightsResponse)
 async def get_insights(query: str) -> dict[str, Any]:
     normalized_query = query.strip()
     if not normalized_query:
