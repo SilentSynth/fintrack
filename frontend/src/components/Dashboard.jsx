@@ -12,7 +12,7 @@ import {
 import Orb from './Orb';
 import TiltedCard from './TiltedCard';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
 const RECENT_SEARCHES_STORAGE_KEY = 'fintrack.recentSearches';
 const CURRENCY_SYMBOLS = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
 const RECENT_SEARCHES_ENABLED_STORAGE_KEY = 'fintrack.recentSearchesEnabled';
@@ -298,11 +298,10 @@ function SearchBar({
     <div className={`w-full ${align === 'center' ? 'max-w-xl mx-auto' : 'max-w-xl'}`}>
       <form onSubmit={onSubmit} className="space-y-4">
         <div
-          className={`flex items-center gap-3 rounded-lg border transition-all duration-300 px-4 py-2.5 shadow-2xl shadow-black/30 backdrop-blur-md ${
-            isFocused
-              ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)] bg-white/10'
-              : 'border-white/10 bg-white/8'
-          }`}
+          className={`flex items-center gap-3 rounded-lg border transition-all duration-300 px-4 py-2.5 shadow-2xl shadow-black/30 backdrop-blur-md ${isFocused
+            ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)] bg-white/10'
+            : 'border-white/10 bg-white/8'
+            }`}
         >
           <input
             value={query}
@@ -351,11 +350,10 @@ function SearchBar({
               className="sr-only"
             />
             <div
-              className={`w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${
-                recentSearchesEnabled
-                  ? 'bg-emerald-500 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                  : 'bg-zinc-900/50 border-zinc-700/80 hover:border-zinc-500'
-              }`}
+              className={`w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${recentSearchesEnabled
+                ? 'bg-emerald-500 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                : 'bg-zinc-900/50 border-zinc-700/80 hover:border-zinc-500'
+                }`}
             >
               {recentSearchesEnabled && (
                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
@@ -369,15 +367,15 @@ function SearchBar({
 
         {recentSearchesEnabled && recentSearches.length > 0
           ? recentSearches.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleRecentSearchClick(item)}
-                className="bg-zinc-900/50 border border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-300 text-sm px-3 py-1 rounded-full transition-colors cursor-pointer"
-              >
-                {item}
-              </button>
-            ))
+            <button
+              key={item}
+              type="button"
+              onClick={() => handleRecentSearchClick(item)}
+              className="bg-zinc-900/50 border border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600 text-zinc-300 text-sm px-3 py-1 rounded-full transition-colors cursor-pointer"
+            >
+              {item}
+            </button>
+          ))
           : null}
       </div>
     </div>
@@ -410,18 +408,18 @@ export default function Dashboard() {
     const rect = cardRef.current.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    
+
     // Calculate cursor position relative to card center (ranging from -0.5 to 0.5)
     const x = e.clientX - rect.left - width / 2;
     const y = e.clientY - rect.top - height / 2;
-    
+
     // Max rotation amplitude in degrees
-    const maxRotate = 8; 
-    
+    const maxRotate = 8;
+
     // Calculate rotate angles (rotateY uses x coordinate, rotateX uses y coordinate)
     const rX = -(y / (height / 2)) * maxRotate;
     const rY = (x / (width / 2)) * maxRotate;
-    
+
     setTilt({ x: rX, y: rY });
     setIsHovered(true);
   };
