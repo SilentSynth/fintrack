@@ -26,6 +26,71 @@ def _resolve_ticker(query: str) -> str:
 
     return query
 
+def _fetch_asset_profile(ticker: str) -> dict:
+    from app.core.settings import get_settings
+    settings = get_settings()
+    fmp_api_key = settings.get("fmp_api_key")
+    
+    if fmp_api_key:
+        try:
+            print(f"DEBUG: Fetching profile summary via FMP for {ticker}...")
+            url = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={fmp_api_key}"
+            response = requests.get(url, timeout=5)
+            if response.ok:
+                profile_list = response.json()
+                if isinstance(profile_list, list) and len(profile_list) > 0:
+                    profile_data = profile_list[0]
+                    return {
+                        "description": profile_data.get("description"),
+                        "sector": profile_data.get("sector"),
+                        "industry": profile_data.get("industry"),
+                        "website": profile_data.get("website"),
+                        "full_time_employees": profile_data.get("fullTimeEmployees"),
+                        "currency": profile_data.get("currency"),
+                    }
+        except Exception as e:
+            print(f"DEBUG: FMP profile fetch failed for {ticker} -> {e}")
+
+    try:
+        print(f"DEBUG: Fetching profile summary via yfinance for {ticker}...")
+        import yfinance as yf
+        t = yf.Ticker(ticker)
+        info = t.info
+        if info:
+            return {
+                "description": info.get("longBusinessSummary") or info.get("description"),
+                "sector": info.get("sector"),
+                "industry": info.get("industry"),
+                "website": info.get("website"),
+                "full_time_employees": info.get("fullTimeEmployees"),
+                "currency": info.get("currency"),
+            }
+    except Exception as e:
+        print(f"DEBUG: Asset profile fetch failed for {ticker} -> {e}")
+    return {}
+
+def _generate_one_sentence_summary(ticker: str) -> str | None:
+    from app.core.settings import get_settings
+    from google import genai
+    
+    settings = get_settings()
+    gemini_api_key = settings.get("gemini_api_key")
+    if not gemini_api_key:
+        return None
+        
+    try:
+        print(f"DEBUG: Generating AI fallback description for {ticker}...")
+        client = genai.Client(api_key=gemini_api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"Write a very brief, professional one-sentence company summary for the stock ticker or name '{ticker}'. Do not include markdown or formatting, just return the plain text sentence.",
+        )
+        if response and response.text:
+            return response.text.strip()
+    except Exception as e:
+        print(f"DEBUG: AI fallback description generation failed for {ticker} -> {e}")
+    return None
+
 def _fetch_stock_sync(query: str) -> dict:
     query = _resolve_ticker(query)
     query = query.upper().strip()
@@ -47,7 +112,9 @@ def _fetch_stock_sync(query: str) -> dict:
         result = data.get("chart", {}).get("result", [])
         if result:
             meta = result[0].get("meta", {})
-            current_price = meta.get("regularMarketPrice")
+            raw_price = meta.get("regularMarketPrice")
+            prev_close = meta.get("previousClose") or meta.get("chartPreviousClose") or meta.get("regularMarketPreviousClose")
+            current_price = raw_price if (raw_price and raw_price != 0) else prev_close
             
             timestamps = result[0].get("timestamp", [])
             indicators = result[0].get("indicators", {}).get("quote", [{}])[0]
@@ -71,6 +138,28 @@ def _fetch_stock_sync(query: str) -> dict:
 
     has_live_quote = current_price is not None
     view_mode = "ticker" if has_live_quote else "macro_sector"
+    
+    market_state = ""
+    if result:
+        meta = result[0].get("meta", {})
+        market_state = str(meta.get("marketState", "")).upper()
+    is_market_open = (market_state == "REGULAR")
+
+    # Fetch asset profile and setup fallbacks
+    profile = _fetch_asset_profile(query)
+    description = profile.get("description")
+    sector = profile.get("sector")
+    industry = profile.get("industry")
+    website = profile.get("website")
+    full_time_employees = profile.get("full_time_employees")
+    profile_currency = profile.get("currency")
+    
+    if profile_currency:
+        currency_code = profile_currency
+        currency_symbol = "₹" if currency_code == "INR" else ("$" if currency_code == "USD" else currency_code)
+
+    if not description:
+        description = _generate_one_sentence_summary(query)
 
     return {
         "query": query,
@@ -81,8 +170,15 @@ def _fetch_stock_sync(query: str) -> dict:
         "currency_symbol": currency_symbol, 
         "historical_prices": historical_prices, 
         "has_live_quote": has_live_quote,
-        "view_mode": view_mode
+        "is_market_open": is_market_open,
+        "view_mode": view_mode,
+        "description": description,
+        "sector": sector,
+        "industry": industry,
+        "website": website,
+        "full_time_employees": full_time_employees
     }
 
 async def fetch_stock_snapshot(query: str) -> dict:
+    return await asyncio.to_thread(_fetch_stock_sync, query)
     return await asyncio.to_thread(_fetch_stock_sync, query)

@@ -17,9 +17,16 @@ class StockData(BaseModel):
     company_name: str | None = None
     current_price: float | None = None
     market_cap: int | None = None
-    currency: str = "USD"
+    currency: str | None = "USD"
     has_live_quote: bool = False
+    is_market_open: bool = False
     view_mode: Literal["ticker", "macro_sector"] = "ticker"
+    description: str | None = None
+    sector: str | None = None
+    industry: str | None = None
+    website: str | None = None
+    full_time_employees: int | None = None
+    entity_type: str = "PUBLIC"
 
 
 class HistoricalPrice(BaseModel):

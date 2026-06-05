@@ -21,6 +21,7 @@ export default function TiltedCard({
   showTooltip = true,
   overlayContent = null,
   displayOverlayContent = false,
+  fallbackImageSrc = '',
 }) {
   const ref = useRef(null);
   const x = useMotionValue(0);
@@ -100,8 +101,14 @@ export default function TiltedCard({
         }}
       >
         <motion.img
-          src={imageSrc}
+          src={imageSrc || fallbackImageSrc}
           alt={altText}
+          onError={(e) => {
+            if (fallbackImageSrc && e.target.src !== fallbackImageSrc) {
+              e.target.onerror = null;
+              e.target.src = fallbackImageSrc;
+            }
+          }}
           className="absolute left-0 top-0 rounded-[15px] object-cover will-change-transform [transform:translateZ(0)]"
           style={{
             width: imageWidth,
