@@ -130,67 +130,6 @@ async def get_insights(query: str) -> dict[str, Any]:
     if not stock_result.get("company_name") or not str(stock_result.get("company_name")).strip():
         stock_result["company_name"] = fallback_name
 
-    desc = stock_result.get("description")
-    sector = stock_result.get("sector")
-    if not desc or len(str(desc).strip()) < 150 or (sector and str(sector).strip() == 'Financial / General'):
-        gemini_success = False
-        try:
-            from google import genai
-            from google.genai import types
-            from app.core.settings import get_settings
-
-            settings = get_settings()
-            gemini_api_key = settings.get("gemini_api_key")
-            if gemini_api_key:
-                client = genai.Client(api_key=gemini_api_key)
-                model_name = settings.get("gemini_model") or "gemini-2.5-flash"
-                prompt = f'Provide a financial profile for the company/asset "{normalized_query}". Return EXACTLY in this format: Description|Sector|Industry. The description must be 2 to 3 professional sentences.'
-
-                def _call_gemini():
-                    return client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            temperature=0.0,
-                        ),
-                    )
-
-                response = await asyncio.wait_for(asyncio.to_thread(_call_gemini), timeout=5.0)
-                if response and response.text:
-                    cleaned_res = response.text.strip()
-                    if cleaned_res.startswith("```"):
-                        lines = cleaned_res.splitlines()
-                        if lines[0].startswith("```"):
-                            lines = lines[1:]
-                        if lines and lines[-1].startswith("```"):
-                            lines = lines[:-1]
-                        cleaned_res = "\n".join(lines).strip()
-
-                    parts = cleaned_res.split('|')
-                    if len(parts) == 3:
-                        ai_desc = parts[0].strip()
-                        ai_sector = parts[1].strip()
-                        ai_industry = parts[2].strip()
-                        if ai_desc and ai_sector and ai_industry:
-                            stock_result["description"] = ai_desc
-                            stock_result["sector"] = ai_sector
-                            stock_result["industry"] = ai_industry
-                            gemini_success = True
-
-            if not gemini_success:
-                raise ValueError("Format mismatch or empty response from LLM")
-        except Exception as e:
-            print(f"DEBUG: Gemini fallback profile generation failed or timed out: {e}")
-            stock_result["description"] = "Company profile unavailable."
-            stock_result["sector"] = "Financial / General"
-            stock_result["industry"] = "Market Asset"
-    else:
-        if not stock_result.get("sector") or not str(stock_result.get("sector")).strip():
-            stock_result["sector"] = "Financial / General"
-
-        if not stock_result.get("industry") or not str(stock_result.get("industry")).strip():
-            stock_result["industry"] = "Market Asset"
-
     if not stock_result.get("website") or not str(stock_result.get("website")).strip():
         stock_result["website"] = "#"
 
@@ -204,26 +143,92 @@ async def get_insights(query: str) -> dict[str, Any]:
 
     view_mode = str(stock_result.get("view_mode", "ticker"))
 
+    # Populate profile_data immediately before return
+    profile_data = {
+        "query": normalized_query,
+        "ticker": stock_result.get("ticker"),
+        "company_name": stock_result.get("company_name"),
+        "current_price": stock_result.get("current_price"),
+        "market_cap": stock_result.get("market_cap"),
+        "currency": stock_result.get("currency"),
+        "has_live_quote": stock_result.get("has_live_quote", False),
+        "is_market_open": stock_result.get("is_market_open", False),
+        "view_mode": view_mode,
+        "description": stock_result.get("description"),
+        "sector": stock_result.get("sector"),
+        "industry": stock_result.get("industry"),
+        "website": stock_result.get("website"),
+        "full_time_employees": stock_result.get("full_time_employees"),
+        "entity_type": entity_type,
+    }
+
+    desc_val = profile_data.get("description")
+    if not desc_val or len(str(desc_val).strip()) < 150:
+        try:
+            from google import genai
+            from google.genai import types
+            from app.core.settings import get_settings
+            import json
+            import re
+
+            settings = get_settings()
+            gemini_api_key = settings.get("gemini_api_key")
+            if not gemini_api_key:
+                raise ValueError("Missing GEMINI_API_KEY")
+
+            client = genai.Client(api_key=gemini_api_key)
+            model_name = settings.get("gemini_model") or "gemini-2.5-flash"
+            ticker_val = profile_data.get("ticker") or normalized_query
+            prompt = f"""
+Act as a financial data API. Provide a 3-sentence company summary, the sector, and the industry for the asset/company query "{normalized_query}" (ticker: "{ticker_val}").
+
+Return ONLY a valid JSON object with the following keys:
+- "description": A professional 3-sentence summary of the company.
+- "sector": The accurate financial sector.
+- "industry": The accurate financial industry.
+
+Do not include any other text or explanation. Return ONLY the JSON.
+""".strip()
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
+            )
+            if response and response.text:
+                raw_text = response.text.strip()
+                # Markdown Stripping using regex
+                cleaned_text = re.sub(r"^```(?:json)?\s*", "", raw_text, flags=re.IGNORECASE)
+                cleaned_text = re.sub(r"\s*```$", "", cleaned_text)
+                cleaned_text = cleaned_text.strip()
+
+                parsed = json.loads(cleaned_text)
+                if "description" in parsed and "sector" in parsed and "industry" in parsed:
+                    profile_data["description"] = str(parsed["description"]).strip()
+                    profile_data["sector"] = str(parsed["sector"]).strip()
+                    profile_data["industry"] = str(parsed["industry"]).strip()
+                else:
+                    raise ValueError("Parsed JSON missing required keys")
+            else:
+                raise ValueError("Empty response from Gemini")
+        except Exception as e:
+            print(f"ERROR: Gemini synchronous fallback profile generation failed: {e}")
+            profile_data["description"] = "Market asset description temporarily unavailable..."
+            profile_data["sector"] = "Financial"
+            profile_data["industry"] = "General"
+    else:
+        if not profile_data.get("sector") or not str(profile_data.get("sector")).strip():
+            profile_data["sector"] = "Financial"
+        if not profile_data.get("industry") or not str(profile_data.get("industry")).strip():
+            profile_data["industry"] = "General"
+
     return {
         "query": normalized_query,
         "view_mode": view_mode,
-        "stock_data": {
-            "query": normalized_query,
-            "ticker": stock_result.get("ticker"),
-            "company_name": stock_result.get("company_name"),
-            "current_price": stock_result.get("current_price"),
-            "market_cap": stock_result.get("market_cap"),
-            "currency": stock_result.get("currency"),
-            "has_live_quote": stock_result.get("has_live_quote", False),
-            "is_market_open": stock_result.get("is_market_open", False),
-            "view_mode": view_mode,
-            "description": stock_result.get("description"),
-            "sector": stock_result.get("sector"),
-            "industry": stock_result.get("industry"),
-            "website": stock_result.get("website"),
-            "full_time_employees": stock_result.get("full_time_employees"),
-            "entity_type": entity_type,
-        },
+        "stock_data": profile_data,
         "historical_prices": stock_result.get("historical_prices", []),
         "news_articles": news_result.get("news_articles", []),
         "ai_summary": {
