@@ -165,18 +165,16 @@ async def get_insights(query: str) -> dict[str, Any]:
     desc_val = profile_data.get("description")
     if not desc_val or len(str(desc_val).strip()) < 150:
         try:
-            from google import genai
-            from google.genai import types
+            import google.generativeai as genai
             from app.core.settings import get_settings
             import json
-            import re
 
             settings = get_settings()
             gemini_api_key = settings.get("gemini_api_key")
             if not gemini_api_key:
                 raise ValueError("Missing GEMINI_API_KEY")
 
-            client = genai.Client(api_key=gemini_api_key)
+            genai.configure(api_key=gemini_api_key)
             model_name = settings.get("gemini_model") or "gemini-2.5-flash"
             ticker_val = profile_data.get("ticker") or normalized_query
             prompt = f"""
@@ -190,22 +188,14 @@ Return ONLY a valid JSON object with the following keys:
 Do not include any other text or explanation. Return ONLY the JSON.
 """.strip()
 
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.0,
-                    response_mime_type="application/json",
-                ),
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"}
             )
+            
             if response and response.text:
-                raw_text = response.text.strip()
-                # Markdown Stripping using regex
-                cleaned_text = re.sub(r"^```(?:json)?\s*", "", raw_text, flags=re.IGNORECASE)
-                cleaned_text = re.sub(r"\s*```$", "", cleaned_text)
-                cleaned_text = cleaned_text.strip()
-
-                parsed = json.loads(cleaned_text)
+                parsed = json.loads(response.text.strip())
                 if "description" in parsed and "sector" in parsed and "industry" in parsed:
                     profile_data["description"] = str(parsed["description"]).strip()
                     profile_data["sector"] = str(parsed["sector"]).strip()
@@ -215,7 +205,10 @@ Do not include any other text or explanation. Return ONLY the JSON.
             else:
                 raise ValueError("Empty response from Gemini")
         except Exception as e:
-            print(f"ERROR: Gemini synchronous fallback profile generation failed: {e}")
+            import logging
+            import traceback
+            logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
+            logging.error(traceback.format_exc())
             profile_data["description"] = "Market asset description temporarily unavailable..."
             profile_data["sector"] = "Financial"
             profile_data["industry"] = "General"
