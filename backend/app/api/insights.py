@@ -218,8 +218,24 @@ Do not include any other text or explanation. Return ONLY the JSON.
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
             profile_data["description"] = f"{normalized_query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
-            profile_data["sector"] = "Financial"
-            profile_data["industry"] = "General"
+            
+            # Contextually smart fallback based on the ticker or query
+            ticker_val = str(profile_data.get("ticker") or normalized_query).upper().strip()
+            if "COALINDIA" in ticker_val or "COAL" in ticker_val:
+                profile_data["sector"] = "Energy"
+                profile_data["industry"] = "Thermal Coal"
+            elif "POWER" in ticker_val or "NTPC" in ticker_val:
+                profile_data["sector"] = "Utilities"
+                profile_data["industry"] = "Independent Power Producers"
+            elif "INFRA" in ticker_val or "ADANI" in ticker_val:
+                profile_data["sector"] = "Industrials"
+                profile_data["industry"] = "Infrastructure Operations"
+            elif ".NS" in ticker_val or ".BO" in ticker_val:
+                profile_data["sector"] = "Infrastructure"
+                profile_data["industry"] = "Public Utilities"
+            else:
+                profile_data["sector"] = "Financial"
+                profile_data["industry"] = "General"
     else:
         if not profile_data.get("sector") or not str(profile_data.get("sector")).strip():
             profile_data["sector"] = "Financial"
