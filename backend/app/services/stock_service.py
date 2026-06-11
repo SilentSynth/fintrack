@@ -35,7 +35,7 @@ def _fetch_asset_profile(ticker: str) -> dict:
         try:
             print(f"DEBUG: Fetching profile summary via FMP for {ticker}...")
             url = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={fmp_api_key}"
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=2.5)
             if response.ok:
                 profile_list = response.json()
                 if isinstance(profile_list, list) and len(profile_list) > 0:

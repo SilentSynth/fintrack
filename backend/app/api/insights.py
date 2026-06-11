@@ -217,7 +217,7 @@ Do not include any other text or explanation. Return ONLY the JSON.
         except Exception as e:
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
-            profile_data["description"] = f"{normalized_query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
+            profile_data["description"] = f"DEBUG ERROR: {str(e)} | Asset: {query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
             profile_data["sector"] = "Financial"
             profile_data["industry"] = "General"
     else:
