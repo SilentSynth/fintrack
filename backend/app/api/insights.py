@@ -181,11 +181,11 @@ async def get_insights(query: str) -> dict[str, Any]:
                 else:
                     import google.generativeai as genai
                     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                    fallback_model = genai.GenerativeModel('gemini-2.5-flash')
+                    fallback_model = genai.GenerativeModel('gemini-3.5-flash')
             except Exception:
                 import google.generativeai as genai
                 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                fallback_model = genai.GenerativeModel('gemini-2.5-flash')
+                fallback_model = genai.GenerativeModel('gemini-3.5-flash')
 
             ticker_val = profile_data.get("ticker") or normalized_query
             prompt = f"""
