@@ -181,11 +181,11 @@ async def get_insights(query: str) -> dict[str, Any]:
                 else:
                     import google.generativeai as genai
                     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                    fallback_model = genai.GenerativeModel('gemini-1.5-flash')
+                    fallback_model = genai.GenerativeModel('gemini-2.5-flash')
             except Exception:
                 import google.generativeai as genai
                 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                fallback_model = genai.GenerativeModel('gemini-1.5-flash')
+                fallback_model = genai.GenerativeModel('gemini-2.5-flash')
 
             ticker_val = profile_data.get("ticker") or normalized_query
             prompt = f"""
@@ -217,7 +217,7 @@ Do not include any other text or explanation. Return ONLY the JSON.
         except Exception as e:
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
-            profile_data["description"] = f"DEBUG ERROR: {str(e)} | Asset: {query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
+            profile_data["description"] = f"{normalized_query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
             profile_data["sector"] = "Financial"
             profile_data["industry"] = "General"
     else:
