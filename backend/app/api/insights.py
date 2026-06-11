@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 import google.generativeai as genai
+import pytz
 import requests
 
 from app.schemas import InsightsResponse
@@ -149,6 +150,21 @@ async def get_insights(query: str) -> dict[str, Any]:
 
     view_mode = str(stock_result.get("view_mode", "ticker"))
 
+    # FIX THE TIMEZONE "MARKET CLOSED" BUG
+    ticker = stock_result.get("ticker") or normalized_query
+    is_market_open = stock_result.get("is_market_open", False)
+    if ticker and (str(ticker).upper().endswith(".NS") or str(ticker).upper().endswith(".BO")):
+        try:
+            kolkata_tz = pytz.timezone("Asia/Kolkata")
+            from datetime import datetime
+            now_kolkata = datetime.now(kolkata_tz)
+            is_weekday = now_kolkata.weekday() < 5 # Monday=0, Friday=4
+            start_time = now_kolkata.replace(hour=9, minute=15, second=0, microsecond=0)
+            end_time = now_kolkata.replace(hour=15, minute=30, second=0, microsecond=0)
+            is_market_open = is_weekday and (start_time <= now_kolkata <= end_time)
+        except Exception as tz_err:
+            logging.error(f"Timezone calculation failed: {tz_err}")
+
     # Populate profile_data immediately before return
     profile_data = {
         "query": normalized_query,
@@ -158,7 +174,7 @@ async def get_insights(query: str) -> dict[str, Any]:
         "market_cap": stock_result.get("market_cap"),
         "currency": stock_result.get("currency"),
         "has_live_quote": stock_result.get("has_live_quote", False),
-        "is_market_open": stock_result.get("is_market_open", False),
+        "is_market_open": is_market_open,
         "view_mode": view_mode,
         "description": stock_result.get("description"),
         "sector": stock_result.get("sector"),
@@ -188,7 +204,7 @@ Return ONLY a valid JSON object with the following keys:
 Do not include any other text or explanation. Return ONLY the JSON.
 """.strip()
 
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
+            url_v1 = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [
@@ -203,7 +219,12 @@ Do not include any other text or explanation. Return ONLY the JSON.
                 }
             }
 
-            response = requests.post(url, json=payload, headers=headers, timeout=5)
+            response = requests.post(url_v1, json=payload, headers=headers, timeout=5)
+            if response.status_code != 200:
+                logging.warning(f"Gemini production v1 endpoint failed with status {response.status_code}. Retrying with v1beta...")
+                url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
+                response = requests.post(url_beta, json=payload, headers=headers, timeout=5)
+
             response.raise_for_status()
             res_data = response.json()
             
