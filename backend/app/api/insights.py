@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 import google.generativeai as genai
+import requests
 
 from app.schemas import InsightsResponse
 from app.services.ai_service import (
@@ -175,18 +176,6 @@ async def get_insights(query: str) -> dict[str, Any]:
                 logging.warning("VERCEL ENVIRONMENT VARIABLE GEMINI_API_KEY IS MISSING")
                 raise ValueError("VERCEL ENVIRONMENT VARIABLE GEMINI_API_KEY IS MISSING")
 
-            try:
-                if 'model' in globals():
-                    fallback_model = globals()['model']
-                else:
-                    import google.generativeai as genai
-                    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                    fallback_model = genai.GenerativeModel('gemini-3.5-flash')
-            except Exception:
-                import google.generativeai as genai
-                genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-                fallback_model = genai.GenerativeModel('gemini-3.5-flash')
-
             ticker_val = profile_data.get("ticker") or normalized_query
             prompt = f"""
 Act as a financial data API. Provide a 3-sentence company summary, the sector, and the industry for the asset/company query "{normalized_query}" (ticker: "{ticker_val}").
@@ -199,21 +188,33 @@ Return ONLY a valid JSON object with the following keys:
 Do not include any other text or explanation. Return ONLY the JSON.
 """.strip()
 
-            response = fallback_model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
-            )
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "responseMimeType": "application/json"
+                }
+            }
+
+            response = requests.post(url, json=payload, headers=headers, timeout=5)
+            response.raise_for_status()
+            res_data = response.json()
             
-            if response and response.text:
-                parsed = json.loads(response.text.strip())
-                if "description" in parsed and "sector" in parsed and "industry" in parsed:
-                    profile_data["description"] = str(parsed["description"]).strip()
-                    profile_data["sector"] = str(parsed["sector"]).strip()
-                    profile_data["industry"] = str(parsed["industry"]).strip()
-                else:
-                    raise ValueError("Parsed JSON missing required keys")
+            raw_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+            parsed = json.loads(raw_text.strip())
+            if "description" in parsed and "sector" in parsed and "industry" in parsed:
+                profile_data["description"] = str(parsed["description"]).strip()
+                profile_data["sector"] = str(parsed["sector"]).strip()
+                profile_data["industry"] = str(parsed["industry"]).strip()
             else:
-                raise ValueError("Empty response from Gemini")
+                raise ValueError("Parsed JSON missing required keys")
         except Exception as e:
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
