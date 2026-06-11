@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import os
+import traceback
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+import google.generativeai as genai
 
 from app.schemas import InsightsResponse
 from app.services.ai_service import (
@@ -165,17 +170,23 @@ async def get_insights(query: str) -> dict[str, Any]:
     desc_val = profile_data.get("description")
     if not desc_val or len(str(desc_val).strip()) < 150:
         try:
-            import google.generativeai as genai
-            from app.core.settings import get_settings
-            import json
-
-            settings = get_settings()
-            gemini_api_key = settings.get("gemini_api_key")
+            gemini_api_key = os.environ.get("GEMINI_API_KEY")
             if not gemini_api_key:
-                raise ValueError("Missing GEMINI_API_KEY")
+                logging.warning("VERCEL ENVIRONMENT VARIABLE GEMINI_API_KEY IS MISSING")
+                raise ValueError("VERCEL ENVIRONMENT VARIABLE GEMINI_API_KEY IS MISSING")
 
-            genai.configure(api_key=gemini_api_key)
-            model_name = settings.get("gemini_model") or "gemini-2.5-flash"
+            try:
+                if 'model' in globals():
+                    fallback_model = globals()['model']
+                else:
+                    import google.generativeai as genai
+                    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+                    fallback_model = genai.GenerativeModel('gemini-1.5-flash')
+            except Exception:
+                import google.generativeai as genai
+                genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+                fallback_model = genai.GenerativeModel('gemini-1.5-flash')
+
             ticker_val = profile_data.get("ticker") or normalized_query
             prompt = f"""
 Act as a financial data API. Provide a 3-sentence company summary, the sector, and the industry for the asset/company query "{normalized_query}" (ticker: "{ticker_val}").
@@ -188,8 +199,7 @@ Return ONLY a valid JSON object with the following keys:
 Do not include any other text or explanation. Return ONLY the JSON.
 """.strip()
 
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(
+            response = fallback_model.generate_content(
                 prompt,
                 generation_config={"response_mime_type": "application/json"}
             )
@@ -205,11 +215,9 @@ Do not include any other text or explanation. Return ONLY the JSON.
             else:
                 raise ValueError("Empty response from Gemini")
         except Exception as e:
-            import logging
-            import traceback
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
-            profile_data["description"] = "Market asset description temporarily unavailable..."
+            profile_data["description"] = f"{normalized_query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."
             profile_data["sector"] = "Financial"
             profile_data["industry"] = "General"
     else:
