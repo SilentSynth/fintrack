@@ -5,6 +5,8 @@ import json
 import re
 from typing import Any
 
+from functools import lru_cache
+
 from google import genai
 from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -132,7 +134,7 @@ def _generate_summary_sync(query: str, news_articles: list[dict[str, Any]], view
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=8), reraise=True)
     def _generate_content_with_retry() -> Any:
         return client.models.generate_content(
-            model="gemini-3.1-flash-lite",
+            model="gemini-2.5-flash-lite",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,
@@ -162,6 +164,7 @@ def _generate_summary_sync(query: str, news_articles: list[dict[str, Any]], view
             "alerts": [],
         }
     except Exception as e:
+        print(f"Gemini API rate limited or failed: {e}")
         print(f"DEBUG EXCEPTION: {e}")
         return {
             "current_market_state": ["AI synthesis temporarily unavailable due to high API load."],
@@ -251,11 +254,18 @@ def _classify_entity_heuristics(query: str) -> str:
     return "PUBLIC"
 
 
+@lru_cache(maxsize=128)
 def _classify_entity_sync(query: str) -> str:
+    # 1. Run heuristics first. If it is PUBLIC or INVALID, return immediately.
+    # This prevents making a Gemini API call for standard tickers/queries.
+    heuristic_res = _classify_entity_heuristics(query)
+    if heuristic_res in ["PUBLIC", "INVALID"]:
+        return heuristic_res
+
     settings = get_settings()
     gemini_api_key = settings.get("gemini_api_key")
     if not gemini_api_key:
-        return _classify_entity_heuristics(query)
+        return heuristic_res
 
     prompt = f"""
 Classify the following query into exactly one of these categories: PUBLIC, PRIVATE, SECTOR, or INVALID.
@@ -274,7 +284,7 @@ Output exactly one of the words: PUBLIC, PRIVATE, SECTOR, or INVALID. Output not
     try:
         client = genai.Client(api_key=gemini_api_key)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,
@@ -287,6 +297,7 @@ Output exactly one of the words: PUBLIC, PRIVATE, SECTOR, or INVALID. Output not
                 print(f"DEBUG: LLM classified '{query}' as {cleaned_res}")
                 return cleaned_res
     except Exception as e:
+        print(f"Gemini API rate limited or failed: {e}")
         print(f"DEBUG: LLM classification failed for '{query}' -> {e}")
 
     return _classify_entity_heuristics(query)
@@ -322,7 +333,7 @@ Output JSON only. Do not wrap the response in ```json or any other formatting.
     try:
         client = genai.Client(api_key=gemini_api_key)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,
@@ -340,6 +351,7 @@ Output JSON only. Do not wrap the response in ```json or any other formatting.
                 "full_time_employees": parsed.get("full_time_employees"),
             }
     except Exception as e:
+        print(f"Gemini API rate limited or failed: {e}")
         print(f"DEBUG: Private profile generation failed for '{company_name}' -> {e}")
 
     return profile

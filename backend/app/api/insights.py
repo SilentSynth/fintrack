@@ -204,7 +204,7 @@ Return ONLY a valid JSON object with the following keys:
 Do not include any other text or explanation. Return ONLY the JSON.
 """.strip()
 
-            url_v1 = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
+            url_v1 = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key={gemini_api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [
@@ -222,7 +222,7 @@ Do not include any other text or explanation. Return ONLY the JSON.
             response = requests.post(url_v1, json=payload, headers=headers, timeout=5)
             if response.status_code != 200:
                 logging.warning(f"Gemini production v1 endpoint failed with status {response.status_code}. Retrying with v1beta...")
-                url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={gemini_api_key}"
+                url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={gemini_api_key}"
                 response = requests.post(url_beta, json=payload, headers=headers, timeout=5)
 
             response.raise_for_status()
@@ -237,6 +237,7 @@ Do not include any other text or explanation. Return ONLY the JSON.
             else:
                 raise ValueError("Parsed JSON missing required keys")
         except Exception as e:
+            print(f"Gemini API rate limited or failed: {e}")
             logging.error(f"Gemini synchronous fallback profile generation failed: {type(e).__name__}: {e}")
             logging.error(traceback.format_exc())
             profile_data["description"] = f"{normalized_query} is a publicly traded international asset. Detailed real-time corporate analytics are temporarily adjusting."

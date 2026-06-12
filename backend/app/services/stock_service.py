@@ -82,12 +82,13 @@ def _generate_one_sentence_summary(ticker: str) -> str | None:
         print(f"DEBUG: Generating AI fallback description for {ticker}...")
         client = genai.Client(api_key=gemini_api_key)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents=f"Write a very brief, professional one-sentence company summary for the stock ticker or name '{ticker}'. Do not include markdown or formatting, just return the plain text sentence.",
         )
         if response and response.text:
             return response.text.strip()
     except Exception as e:
+        print(f"Gemini API rate limited or failed: {e}")
         print(f"DEBUG: AI fallback description generation failed for {ticker} -> {e}")
     return None
 
@@ -158,8 +159,10 @@ def _fetch_stock_sync(query: str) -> dict:
         currency_code = profile_currency
         currency_symbol = "₹" if currency_code == "INR" else ("$" if currency_code == "USD" else currency_code)
 
+    # Do not call LLM for description here to prevent duplicate AI calls in the same execution loop.
+    # The insights API will generate the full profile (description, sector, industry) in one go if needed.
     if not description:
-        description = _generate_one_sentence_summary(query)
+        description = None
 
     return {
         "query": query,
