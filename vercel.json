@@ -10,5 +10,10 @@
             "routePrefix": "/api",
             "framework": "fastapi"
         }
+    },
+    "functions": {
+        "backend/**/*.py": {
+            "maxDuration": 60
+        }
     }
 }
