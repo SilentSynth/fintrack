@@ -8,11 +8,11 @@
 *(Drag and drop your .mp4 video file here via the GitHub web editor, or replace this text with a YouTube/Loom link)*
 
 **Landing Page:**
-![Landing Page Screenshot]
+
 <img width="1917" height="900" alt="image" src="https://github.com/user-attachments/assets/c05ef0ed-cdf3-4716-9c9b-25d7639bcea6" />
 
 **Dashboard Preview:**
-![Dashboard Screenshots]
+
 <img width="1890" height="911" alt="image" src="https://github.com/user-attachments/assets/66fe712b-cf2a-4ef7-933f-fd8aa5c59745" />
 <img width="1892" height="831" alt="image" src="https://github.com/user-attachments/assets/ce58b562-7bce-437a-a671-2cc383b7876e" />
 <img width="1883" height="900" alt="image" src="https://github.com/user-attachments/assets/1ac52598-b388-4dd6-b498-dcab658da585" />
