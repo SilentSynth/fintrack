@@ -2,6 +2,19 @@
 
 **FinTrack** is a full-stack financial intelligence dashboard designed to give investors and analysts a comprehensive, real-time snapshot of any publicly traded company. By aggregating live market data, recent headlines, and AI-driven analysis into a single interface, FinTrack eliminates the need to jump between multiple financial platforms to understand a stock's current market state.
 
+## Demo & Screenshots
+
+**Live Demo Video:**
+*(Drag and drop your .mp4 video file here via the GitHub web editor, or replace this text with a YouTube/Loom link)*
+
+**Dashboard Preview:**
+![Dashboard Screenshot](path/to/your/dashboard-screenshot.png)
+
+**Landing Page:**
+![Landing Page Screenshot](path/to/your/landing-screenshot.png)
+
+---
+
 ## Key Functionalities & Uses
 
 * **Real-Time Market Telemetry:** Fetches and displays live stock prices, volume, and core company metrics instantly using Financial Modeling Prep (FMP) and `yfinance`.
