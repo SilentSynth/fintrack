@@ -42,6 +42,22 @@ fintrack/
 └── .gitignore                            # Global security & environment protections
 ```
 
+## Local Development Setup
+
+
+
+Clone the repository:
+
+
+
+```bash
+
+git clone [https://github.com/yourusername/fintrack.git](https://github.com/yourusername/fintrack.git)
+
+cd fintrack
+```
+
+
 
 ## Backend
 
@@ -65,8 +81,10 @@ Configure environment variables in `backend/.env`:
 
 ```env
 
-NEWS_API_KEY=your_newsapi_key_here
+Create a .env file inside the backend/ directory.
 
+FMP_API_KEY=your_fmp_api_key_here
+NEWS_API_KEY=your_newsapi_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
 
 ```
