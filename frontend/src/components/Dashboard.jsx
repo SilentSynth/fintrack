@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import Orb from './Orb';
+import ColorBends from './ColorBends';
 import TiltedCard from './TiltedCard';
 
 const API_BASE_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
@@ -710,19 +711,28 @@ export default function Dashboard() {
 
   if (!isAnalyzed) {
     return (
-      <div className="relative w-full h-screen bg-black overflow-hidden text-slate-100">
+      <div className="relative w-full min-h-screen bg-black overflow-hidden text-slate-100">
         <div className="absolute inset-0 z-0">
-          <Orb
-            hue={140}
-            hoverIntensity={0.4}
-            rotateOnHover={true}
-            forceHoverState={false}
-            backgroundColor="#000000"
+          <ColorBends
+            colors={["#4a101d", "#241245", "#023c34"]}
+            rotation={90}
+            speed={0.2}
+            scale={1}
+            frequency={1}
+            warpStrength={1}
+            mouseInfluence={1}
+            noise={0.15}
+            parallax={0.5}
+            iterations={1}
+            intensity={1.5}
+            bandWidth={6}
+            transparent
+            color="#0b0512"
           />
         </div>
 
-        <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center px-6 text-center">
-          <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-col items-center gap-8 rounded-[2rem] border border-white/10 bg-black/35 p-8 backdrop-blur-xl sm:p-10">
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 rounded-[2rem] border border-white/10 bg-black/35 p-8 backdrop-blur-xl sm:p-10">
             <div className="space-y-4">
               <p className="text-xl font-black tracking-widest text-emerald-200/70">FINTRACK</p>
               <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400/80">

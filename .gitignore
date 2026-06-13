@@ -219,3 +219,7 @@ __marimo__/
 backend/check_models.py
 
 node_modules/
+
+#components
+ScrollReveal.jsx
+Orb.jsx
