@@ -1,4 +1,3 @@
-Markdown
 # FinTrack: Financial Intelligence Dashboard
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://fintrack-rho-gules.vercel.app/)
