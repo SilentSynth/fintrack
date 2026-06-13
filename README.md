@@ -1,26 +1,46 @@
-# fintrack
+FinTrack
+FinTrack is a full-stack financial intelligence dashboard designed to give investors and analysts a comprehensive, real-time snapshot of any publicly traded company. By aggregating live market data, recent headlines, and AI-driven analysis into a single interface, FinTrack eliminates the need to jump between multiple financial platforms to understand a stock's current market state.
 
+🚀 Key Functionalities & Uses
+Real-Time Market Telemetry: Fetches and displays live stock prices, volume, and core company metrics instantly using Financial Modeling Prep (FMP) and yfinance.
 
+AI-Powered Market Summaries: Leverages Google's gemini-2.5-flash-lite model to analyze current market conditions, synthesizing raw data and recent news into digestible, actionable insights.
 
-Financial Intelligence Dashboard for live stock data, recent news, and Gemini-generated market summaries.
+Aggregated News Feed: Pulls the most recent and relevant financial articles via NewsAPI, keeping users updated on press releases and macro-economic shifts affecting their targeted stock.
 
+Secure, Serverless Architecture: Built on a decoupled monorepo architecture where the Python backend handles all heavy lifting and API key security, passing clean, formatted data to a lightweight, responsive React frontend.
 
+Dynamic Visuals: Features an interactive Dashboard for data visualization and a premium, animated WebGL/Canvas background on the landing page for a modern user experience.
 
-## Directory Layout
+📂 Directory Layout
+A clean separation of concerns between the FastAPI backend and the React/Vite frontend.
 
-
-
-- `backend/app/main.py` - FastAPI app bootstrap and CORS setup
-
-- `backend/app/api/insights.py` - `/api/insights/{query}` router
-
-- `backend/app/services/stock_service.py` - Financial Modeling Prep market data service
-
-- `backend/app/services/news_service.py` - NewsAPI integration via httpx
-
-- `backend/app/services/ai_service.py` - Gemini summarization service
-
-- `frontend/src/components/Dashboard.jsx` - main dashboard UI
+Plaintext
+fintrack/
+├── backend/                              # Python Serverless Backend
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── insights.py               # Main API router for /api/insights/{query}
+│   │   ├── services/
+│   │   │   ├── stock_service.py          # FMP & yfinance market data aggregation
+│   │   │   ├── news_service.py           # NewsAPI HTTP client integration
+│   │   │   └── ai_service.py             # Gemini LLM summarization logic
+│   │   └── main.py                       # FastAPI application bootstrap & CORS
+│   ├── requirements.txt                  # Python dependencies
+│   └── .env                              # Secure backend environment variables
+│
+├── frontend/                             # React + Vite Client
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Dashboard.jsx             # Main interactive data display
+│   │   │   └── ColorBends.jsx            # Animated landing page background
+│   │   ├── App.jsx                       # Root application component
+│   │   └── main.jsx                      # React DOM entry point
+│   ├── package.json                      # Node dependencies
+│   └── vite.config.js                    # Vite bundler configuration
+│
+├── vercel.json                           # Monorepo routing & execution limits
+└── .gitignore                            # Global security & environment protections
 
 
 
