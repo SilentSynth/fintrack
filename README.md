@@ -5,7 +5,7 @@
 ## Demo & Screenshots
 
 **Live Demo Video:**
-*(Drag and drop your .mp4 video file here via the GitHub web editor, or replace this text with a YouTube/Loom link)*
+(https://www.loom.com/share/0edf642cede14afcaf60abbfe947117e)
 
 **Landing Page:**
 
