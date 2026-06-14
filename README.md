@@ -5,7 +5,8 @@
 ## Demo & Screenshots
 
 **Live Demo Video:**
-(https://www.loom.com/share/0edf642cede14afcaf60abbfe947117e)
+
+https://github.com/user-attachments/assets/80ccea2a-9e81-41cd-8cd1-716176ba2988
 
 **Landing Page:**
 
