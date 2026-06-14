@@ -16,7 +16,8 @@
 
 **Live Demo Video:**
 
-https://github.com/user-attachments/assets/80ccea2a-9e81-41cd-8cd1-716176ba2988
+https://github.com/user-attachments/assets/e92808a6-3f8a-4cd2-8c11-450c0aa9a57d
+
 ---
 
 ## Key Functionalities & Uses
