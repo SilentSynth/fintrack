@@ -4,10 +4,6 @@
 
 ## Demo & Screenshots
 
-**Live Demo Video:**
-
-https://github.com/user-attachments/assets/80ccea2a-9e81-41cd-8cd1-716176ba2988
-
 **Landing Page:**
 
 <img width="1917" height="900" alt="image" src="https://github.com/user-attachments/assets/c05ef0ed-cdf3-4716-9c9b-25d7639bcea6" />
@@ -18,6 +14,9 @@ https://github.com/user-attachments/assets/80ccea2a-9e81-41cd-8cd1-716176ba2988
 <img width="1892" height="831" alt="image" src="https://github.com/user-attachments/assets/ce58b562-7bce-437a-a671-2cc383b7876e" />
 <img width="1883" height="900" alt="image" src="https://github.com/user-attachments/assets/1ac52598-b388-4dd6-b498-dcab658da585" />
 
+**Live Demo Video:**
+
+https://github.com/user-attachments/assets/80ccea2a-9e81-41cd-8cd1-716176ba2988
 ---
 
 ## Key Functionalities & Uses
